@@ -18,13 +18,17 @@ function getSavedCategories() {
 
 function AddProjectPage() {
   const navigate = useNavigate();
-  // --- Catch the passed Inspiration Card ---
   const location = useLocation();
+  
+  // Catch both the inspiration card AND the category from the router state
   const inspirationCard = location.state?.inspirationCard;
+  const passedCategory = location.state?.defaultCategory;
   
   const categories = getSavedCategories();
   const [name, setName] = useState("");
-  const [category, setCategory] = useState(categories[0]?.name || "Uncategorized");
+  
+  // NEW: Use the passed category if it exists, otherwise fall back to normal
+  const [category, setCategory] = useState(passedCategory || categories[0]?.name || "Uncategorized");
   const [description, setDescription] = useState("");
 
   function handleSubmit(event) {

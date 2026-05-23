@@ -190,7 +190,14 @@ function RoulettePage() {
                 </p>
 
                 <div className="button-row">
-                  <button className="primary-button">Start project</button>
+                  <Link 
+                    className="primary-button" 
+                    to="/add-project" 
+                    state={{ defaultCategory: selectedItem.name }}
+                  >
+                    Start project
+                  </Link>
+                  
                   <Link className="secondary-button" to="/inspiration">
                     Get inspiration
                   </Link>
