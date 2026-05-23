@@ -115,6 +115,20 @@ const palettes = {
     accentTwo: "#7ac9a3",
     border: "#384556",
   },
+  redSunset: {
+    id: "redSunset",
+    name: "Red Sunset",
+    background: "#fff0eb",
+    surface: "#fff7f2",
+    surfaceAlt: "#f0d1c1",
+    text: "#4a1f18",
+    mutedText: "#7b4a3c",
+    primary: "#d9482b",
+    primaryDark: "#a83b24",
+    accent: "#f07a3b",
+    accentTwo: "#b57559",
+    border: "#e7c2b6",
+  },
 };
 
 export function ThemeProvider({ children }) {

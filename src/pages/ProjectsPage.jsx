@@ -1,7 +1,24 @@
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import ProjectCard from "../components/ProjectCard";
 import { sampleProjects } from "../data/sampleData";
 
+const PROJECTS_KEY = "craftspark-projects";
+
 function ProjectsPage() {
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    
+    if (savedProjects) {
+      setProjects(JSON.parse(savedProjects));
+    } else {
+      setProjects(sampleProjects);
+      localStorage.setItem(PROJECTS_KEY, JSON.stringify(sampleProjects));
+    }
+  }, []);
+
   return (
     <div className="page">
       <section className="section-block">
@@ -11,7 +28,7 @@ function ProjectsPage() {
             <h2>Your project panels</h2>
           </div>
 
-          <button className="primary-button">New project</button>
+          <Link className="primary-button" to="/add-project">New project</Link>
         </div>
 
         <p className="section-description">
@@ -20,7 +37,7 @@ function ProjectsPage() {
         </p>
 
         <div className="project-grid">
-          {sampleProjects.map((project) => (
+          {projects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
         </div>

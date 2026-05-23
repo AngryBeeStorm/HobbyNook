@@ -5,6 +5,8 @@ import InspirationPage from "./pages/InspirationPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectsPage from "./pages/ProjectsPage";
 import RoulettePage from "./pages/RoulettePage";
+import AddProjectPage from "./pages/AddProjectPage";
+import LogProgressPage from "./pages/LogProgressPage";
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
           <Route path="/inspiration" element={<InspirationPage />} />
+          <Route path="/add-project" element={<AddProjectPage />} />
+          <Route path="/projects/:projectId/log" element={<LogProgressPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

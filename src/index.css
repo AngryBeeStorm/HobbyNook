@@ -314,7 +314,7 @@ img {
   font-size: clamp(1.6rem, 3vw, 2.4rem);
 }
 
-.section-header a {
+.section-header a:not(.primary-button):not(.secondary-button) {
   color: var(--primary);
   font-weight: 800;
 }

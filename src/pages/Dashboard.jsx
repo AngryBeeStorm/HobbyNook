@@ -1,15 +1,31 @@
+// src/pages/Dashboard.jsx
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import ProjectCard from "../components/ProjectCard";
 import StatCard from "../components/StatCard";
 import { sampleProjects } from "../data/sampleData";
 
+const PROJECTS_KEY = "craftspark-projects";
+
 function Dashboard() {
-  const totalHours = sampleProjects.reduce(
+  const [projects, setProjects] = useState([]);
+
+  useEffect(() => {
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    if (savedProjects) {
+      setProjects(JSON.parse(savedProjects));
+    } else {
+      setProjects(sampleProjects);
+      localStorage.setItem(PROJECTS_KEY, JSON.stringify(sampleProjects));
+    }
+  }, []);
+
+  const totalHours = projects.reduce(
     (total, project) => total + project.hoursSpent,
     0
   );
 
-  const activeProjects = sampleProjects.filter(
+  const activeProjects = projects.filter(
     (project) => project.status === "In progress"
   ).length;
 
@@ -34,12 +50,7 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="hero-orbit">
-          <span>Crochet</span>
-          <span>Clay</span>
-          <span>Knitting</span>
-          <span>Paint</span>
-        </div>
+        <div className="hero-orbit"></div>
       </section>
 
       <section className="stats-grid">
@@ -59,7 +70,7 @@ function Dashboard() {
         </div>
 
         <div className="project-grid">
-          {sampleProjects.slice(0, 2).map((project) => (
+          {projects.slice(0, 2).map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
         </div>
