@@ -2,8 +2,10 @@ function InspirationPanel({
   card,
   onRandomizeImage,
   onRandomizeWords,
+  onRandomizeWord,
   onRandomizePalette,
   onRandomizeMood,
+  onUpdateMood,
   onRandomizeAll,
   onSave,
 }) {
@@ -17,16 +19,42 @@ function InspirationPanel({
       <div className="inspiration-content">
         <div>
           <p className="section-kicker">Mood</p>
-          <button className="text-randomizer" onClick={onRandomizeMood}>
-            {card.mood}
-          </button>
+          <div className="mood-row">
+            <input
+              className="mood-input"
+              type="text"
+              value={card.mood}
+              onChange={(event) => onUpdateMood(event.target.value)}
+              maxLength={30}
+              placeholder="Type a mood"
+            />
+            <button
+              type="button"
+              className="secondary-button mood-randomizer"
+              onClick={onRandomizeMood}
+            >
+              Randomize
+            </button>
+          </div>
         </div>
 
         <div>
           <p className="section-kicker">Words</p>
-          <div className="word-list" onClick={onRandomizeWords}>
-            {card.words.map((word) => (
-              <span key={word}>{word}</span>
+          <div className="word-list">
+            {card.words.map((word, index) => (
+              <span
+                key={`${word}-${index}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => onRandomizeWord(index)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    onRandomizeWord(index);
+                  }
+                }}
+              >
+                {word}
+              </span>
             ))}
           </div>
         </div>

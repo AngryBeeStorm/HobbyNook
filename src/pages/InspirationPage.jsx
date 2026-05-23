@@ -16,6 +16,15 @@ function getRandomWords() {
   return shuffled.slice(0, 3);
 }
 
+function getRandomWord(excludeWords = []) {
+  const available = inspirationWords.filter(
+    (word) => !excludeWords.includes(word)
+  );
+  return available.length > 0
+    ? getRandomItem(available)
+    : getRandomItem(inspirationWords);
+}
+
 function createRandomCard() {
   return {
     id: crypto.randomUUID(),
@@ -45,6 +54,17 @@ function InspirationPage() {
     }));
   }
 
+  function randomizeWord(index) {
+    setCard((currentCard) => {
+      const newWords = [...currentCard.words];
+      newWords[index] = getRandomWord(currentCard.words);
+      return {
+        ...currentCard,
+        words: newWords,
+      };
+    });
+  }
+
   function randomizePalette() {
     setCard((currentCard) => ({
       ...currentCard,
@@ -56,6 +76,13 @@ function InspirationPage() {
     setCard((currentCard) => ({
       ...currentCard,
       mood: getRandomItem(inspirationMoods),
+    }));
+  }
+
+  function updateMood(value) {
+    setCard((currentCard) => ({
+      ...currentCard,
+      mood: value.slice(0, 30),
     }));
   }
 
@@ -89,8 +116,10 @@ function InspirationPage() {
           card={card}
           onRandomizeImage={randomizeImage}
           onRandomizeWords={randomizeWords}
+          onRandomizeWord={randomizeWord}
           onRandomizePalette={randomizePalette}
           onRandomizeMood={randomizeMood}
+          onUpdateMood={updateMood}
           onRandomizeAll={randomizeAll}
           onSave={saveCard}
         />

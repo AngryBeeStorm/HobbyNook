@@ -149,4 +149,9 @@ export const inspirationPalettes = [
   ["#cdb4db", "#ffc8dd", "#ffafcc", "#bde0fe"],
   ["#e9c46a", "#f4a261", "#e76f51", "#2a9d8f"],
   ["#ede0d4", "#ddb892", "#b08968", "#7f5539"],
+  ["#ffd6a5", "#fdffb6", "#caffbf", "#9bf6ff"],
+  ["#ffadad", "#ffd6a5", "#fdffb6", "#caffbf"],
+  ["#6d6875", "#b5838d", "#ffb4a2", "#e5989b"],
+  ["#81b29a", "#f2cc8f", "#e07a5f", "#3d405b"],
+  ["#f0efeb", "#c9ada7", "#9a8c98", "#5d576b"],
 ];
