@@ -6,6 +6,7 @@ import {
   inspirationPalettes,
   inspirationWords,
 } from "../data/sampleData";
+import { fetchRandomUnsplashImage } from "../services/unsplashApi";
 
 function getRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -20,15 +21,27 @@ function getRandomWord(excludeWords = []) {
   const available = inspirationWords.filter(
     (word) => !excludeWords.includes(word)
   );
+
   return available.length > 0
     ? getRandomItem(available)
     : getRandomItem(inspirationWords);
+}
+
+function getRandomKeyword() {
+  const first = getRandomItem(inspirationWords);
+  const second = getRandomItem(
+    inspirationWords.filter((word) => word !== first)
+  );
+  return `${first} ${second}`;
 }
 
 function createRandomCard() {
   return {
     id: crypto.randomUUID(),
     image: getRandomItem(inspirationImages),
+    imageAlt: "Craft inspiration image",
+    imageCredit: "Sample image",
+    imageSourceUrl: "",
     words: getRandomWords(),
     palette: getRandomItem(inspirationPalettes),
     mood: getRandomItem(inspirationMoods),
@@ -39,12 +52,47 @@ function InspirationPage() {
   const firstCard = useMemo(() => createRandomCard(), []);
   const [card, setCard] = useState(firstCard);
   const [savedCards, setSavedCards] = useState([]);
+  const [keywords, setKeywords] = useState("crochet flowers");
+  const [useCustomKeyword, setUseCustomKeyword] = useState(true);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const [imageError, setImageError] = useState("");
+
+  async function fetchKeywordImage() {
+    setIsLoadingImage(true);
+    setImageError("");
+
+    const keywordForFetch = useCustomKeyword ? keywords : getRandomKeyword();
+
+    try {
+      const imageData = await fetchRandomUnsplashImage(keywordForFetch);
+
+      setCard((currentCard) => ({
+        ...currentCard,
+        image: imageData.imageUrl,
+        imageAlt: imageData.imageAlt,
+        imageCredit: imageData.imageCredit,
+        imageSourceUrl: imageData.imageSourceUrl,
+      }));
+    } catch (error) {
+      console.error(error);
+      setImageError(
+        "Could not load an online image. Using a local sample image instead."
+      );
+
+      setCard((currentCard) => ({
+        ...currentCard,
+        image: getRandomItem(inspirationImages),
+        imageAlt: "Sample craft inspiration image",
+        imageCredit: "Sample image",
+        imageSourceUrl: "",
+      }));
+    } finally {
+      setIsLoadingImage(false);
+    }
+  }
 
   function randomizeImage() {
-    setCard((currentCard) => ({
-      ...currentCard,
-      image: getRandomItem(inspirationImages),
-    }));
+    fetchKeywordImage();
   }
 
   function randomizeWords() {
@@ -58,6 +106,7 @@ function InspirationPage() {
     setCard((currentCard) => {
       const newWords = [...currentCard.words];
       newWords[index] = getRandomWord(currentCard.words);
+
       return {
         ...currentCard,
         words: newWords,
@@ -86,8 +135,11 @@ function InspirationPage() {
     }));
   }
 
-  function randomizeAll() {
-    setCard(createRandomCard());
+  async function randomizeAll() {
+    randomizeWords();
+    randomizePalette();
+    randomizeMood();
+    await fetchKeywordImage();
   }
 
   function saveCard() {
@@ -108,12 +160,48 @@ function InspirationPage() {
         </div>
 
         <p className="section-description">
-          Click the image, words, palette, or mood to randomize each part
-          individually. Save cards you like into your inspiration treasure trove.
+          Enter keywords such as “crochet flowers”, “clay mushrooms”, or
+          “pastel embroidery”, then fetch a random image to match the mood of
+          your card.
         </p>
+
+        <div className="keyword-search-card">
+          <label htmlFor="inspiration-keywords">Image keywords</label>
+
+          <div className="keyword-search-row">
+            <input
+              id="inspiration-keywords"
+              type="text"
+              value={keywords}
+              onChange={(event) => setKeywords(event.target.value)}
+              placeholder="e.g. crochet flowers, clay charms, pastel sewing"
+              disabled={!useCustomKeyword}
+            />
+
+            <label className="keyword-toggle">
+              <input
+                type="checkbox"
+                checked={useCustomKeyword}
+                onChange={() => setUseCustomKeyword((current) => !current)}
+              />
+              Use custom keyword
+            </label>
+
+            <button
+              className="primary-button"
+              onClick={fetchKeywordImage}
+              disabled={isLoadingImage}
+            >
+              {isLoadingImage ? "Loading..." : "Fetch image"}
+            </button>
+          </div>
+
+          {imageError && <p className="form-error">{imageError}</p>}
+        </div>
 
         <InspirationPanel
           card={card}
+          isLoadingImage={isLoadingImage}
           onRandomizeImage={randomizeImage}
           onRandomizeWords={randomizeWords}
           onRandomizeWord={randomizeWord}
@@ -141,7 +229,7 @@ function InspirationPage() {
           <div className="saved-inspiration-grid">
             {savedCards.map((savedCard) => (
               <article className="saved-card" key={savedCard.id}>
-                <img src={savedCard.image} alt="" />
+                <img src={savedCard.image} alt={savedCard.imageAlt || ""} />
 
                 <div>
                   <strong>{savedCard.mood}</strong>
@@ -157,6 +245,23 @@ function InspirationPage() {
                       <span key={color} style={{ backgroundColor: color }} />
                     ))}
                   </div>
+
+                  {savedCard.imageCredit && (
+                    <p className="image-credit">
+                      Image:{" "}
+                      {savedCard.imageSourceUrl ? (
+                        <a
+                          href={savedCard.imageSourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {savedCard.imageCredit}
+                        </a>
+                      ) : (
+                        savedCard.imageCredit
+                      )}
+                    </p>
+                  )}
 
                   <div className="button-row">
                     <button className="secondary-button">Start project</button>

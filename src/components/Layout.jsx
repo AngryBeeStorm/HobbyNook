@@ -8,7 +8,7 @@ function Layout() {
         <div className="brand">
           <div className="brand-mark">✦</div>
           <div>
-            <h1>CraftSpark</h1>
+            <h1>Hobby Nook</h1>
             <p>Hobby assistant</p>
           </div>
         </div>
