@@ -9,9 +9,13 @@ function ProjectDetailPage() {
   const { projectId } = useParams();
   const [project, setProject] = useState(null);
 
-  // New state variables for handling inline description editing
+  // Description Editing State
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescriptionText, setEditDescriptionText] = useState("");
+
+  // Cover Image Editing State
+  const [isEditingCover, setIsEditingCover] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
@@ -20,12 +24,10 @@ function ProjectDetailPage() {
     
     if (foundProject) {
       setProject(foundProject);
-      // Pre-fill our edit box with the current description
       setEditDescriptionText(foundProject.description);
     }
   }, [projectId]);
 
-  // Function to save the newly edited description to local storage
   function handleSaveDescription() {
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
     const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
@@ -39,10 +41,65 @@ function ProjectDetailPage() {
 
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
     
-    // Update the live UI so the new text shows instantly
     setProject({ ...project, description: editDescriptionText });
     setIsEditingDescription(false);
   }
+
+  // --- DRAG AND DROP HANDLERS ---
+  function handleDragOver(e) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    processImageFile(file);
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    processImageFile(file);
+  }
+
+  function processImageFile(file) {
+    if (!file || !file.type.startsWith("image/")) {
+      alert("Please upload an image file (JPG, PNG, etc).");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Image is too large! Please use an image under 2MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Image = event.target.result;
+      
+      const savedProjects = localStorage.getItem(PROJECTS_KEY);
+      const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+
+      const updatedProjects = allProjects.map((p) => {
+        if (p.id === projectId) return { ...p, coverImage: base64Image };
+        return p;
+      });
+
+      localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+      
+      setProject({ ...project, coverImage: base64Image });
+      setIsEditingCover(false);
+    };
+
+    reader.readAsDataURL(file);
+  }
+  // ------------------------------
 
   if (!project) {
     return (
@@ -72,7 +129,6 @@ function ProjectDetailPage() {
           <p className="section-kicker">{project.category}</p>
           <h2>{project.title}</h2>
 
-          {/* ----- INLINE EDITING LOGIC ----- */}
           {isEditingDescription ? (
             <div style={{ display: "grid", gap: "0.5rem", marginBottom: "1.5rem" }}>
               <textarea
@@ -100,7 +156,7 @@ function ProjectDetailPage() {
                   className="secondary-button" 
                   onClick={() => {
                     setIsEditingDescription(false);
-                    setEditDescriptionText(project.description); // Reset if they cancel
+                    setEditDescriptionText(project.description); 
                   }} 
                   style={{ padding: "0.5rem 1rem", fontSize: "0.9rem" }}
                 >
@@ -111,24 +167,67 @@ function ProjectDetailPage() {
           ) : (
             <p>{project.description}</p>
           )}
-          {/* -------------------------------- */}
 
-          <div className="button-row">
-            <Link className="primary-button" to={`/projects/${project.id}/log`}>
-              Add progress update
-            </Link>
-            <button className="secondary-button">Change cover</button>
-            
-            {/* Only show the Edit Description button if we aren't currently editing! */}
-            {!isEditingDescription && (
-              <button 
-                className="secondary-button" 
-                onClick={() => setIsEditingDescription(true)}
-              >
-                Edit description
-              </button>
-            )}
-          </div>
+          {/* ----- DRAG AND DROP ZONE ----- */}
+          {isEditingCover ? (
+            <div 
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              style={{
+                border: `2px dashed ${isDragging ? "var(--primary)" : "var(--border)"}`,
+                borderRadius: "14px",
+                padding: "2rem",
+                textAlign: "center",
+                background: isDragging ? "var(--surfaceAlt)" : "transparent",
+                marginBottom: "1.5rem",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <p style={{ fontWeight: 800, color: "var(--mutedText)", marginBottom: "1rem" }}>
+                {isDragging ? "Drop image here!" : "Drag & drop a new cover image here"}
+              </p>
+              
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                id="cover-upload"
+                style={{ display: "none" }}
+              />
+              
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
+                <label htmlFor="cover-upload" className="primary-button" style={{ display: "inline-block", padding: "0.5rem 1rem", fontSize: "0.9rem", cursor: "pointer", margin: 0 }}>
+                  Browse files
+                </label>
+                <button 
+                  className="secondary-button" 
+                  onClick={() => setIsEditingCover(false)}
+                  style={{ padding: "0.5rem 1rem", fontSize: "0.9rem", margin: 0 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="button-row">
+              <Link className="primary-button" to={`/projects/${project.id}/log`}>
+                Add progress update
+              </Link>
+              
+              {!isEditingDescription && (
+                <>
+                  <button className="secondary-button" onClick={() => setIsEditingCover(true)}>
+                    Change cover
+                  </button>
+                  <button className="secondary-button" onClick={() => setIsEditingDescription(true)}>
+                    Edit description
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {/* ------------------------------ */}
         </div>
       </section>
 
@@ -164,7 +263,6 @@ function ProjectDetailPage() {
         )}
       </section>
 
-      {/* ----- UPDATED INSPIRATION SECTION ----- */}
       <section className="section-block">
         <div className="section-header">
           <div>
@@ -206,7 +304,6 @@ function ProjectDetailPage() {
           </div>
         )}
       </section>
-      {/* --------------------------------------- */}
     </div>
   );
 }
