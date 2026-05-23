@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import InspirationPanel from "../components/InspirationPanel";
 import {
   inspirationImages,
@@ -7,6 +8,8 @@ import {
   inspirationWords,
 } from "../data/sampleData";
 import { fetchRandomUnsplashImage } from "../services/unsplashApi";
+
+const PROJECTS_KEY = "craftspark-projects";
 
 function getRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -56,6 +59,17 @@ function InspirationPage() {
   const [useCustomKeyword, setUseCustomKeyword] = useState(true);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
+
+  // --- State for linking to existing projects ---
+  const [projects, setProjects] = useState([]);
+  const [linkingCardId, setLinkingCardId] = useState(null);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+
+  useEffect(() => {
+    // Load projects so we can populate the "Link to project" dropdown
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    if (savedProjects) setProjects(JSON.parse(savedProjects));
+  }, []);
 
   async function fetchKeywordImage() {
     setIsLoadingImage(true);
@@ -147,6 +161,27 @@ function InspirationPage() {
       { ...card, id: crypto.randomUUID() },
       ...currentCards,
     ]);
+  }
+
+  // --- Function to save the link to local storage ---
+  function confirmLinkProject(savedCard) {
+    if (!selectedProjectId) return;
+
+    const updatedProjects = projects.map((p) => {
+      if (p.id === selectedProjectId) {
+        const existingInspirations = p.inspirations || [];
+        return { ...p, inspirations: [savedCard, ...existingInspirations] };
+      }
+      return p;
+    });
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    setProjects(updatedProjects);
+    
+    // Close the dropdown menu
+    setLinkingCardId(null);
+    setSelectedProjectId("");
+    alert("Inspiration successfully linked to project!");
   }
 
   return (
@@ -263,10 +298,34 @@ function InspirationPage() {
                     </p>
                   )}
 
-                  <div className="button-row">
-                    <button className="secondary-button">Start project</button>
-                    <button className="secondary-button">Link to project</button>
-                  </div>
+                  {/* --- Interactive Linking Buttons --- */}
+                  {linkingCardId === savedCard.id ? (
+                    <div style={{ marginTop: "1.5rem", display: "grid", gap: "0.5rem" }}>
+                      <select 
+                        value={selectedProjectId} 
+                        onChange={(e) => setSelectedProjectId(e.target.value)}
+                        style={{ padding: "0.5rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                      >
+                        <option value="">Select a project...</option>
+                        {projects.map(p => (
+                          <option key={p.id} value={p.id}>{p.title}</option>
+                        ))}
+                      </select>
+                      <div className="button-row">
+                        <button className="primary-button" onClick={() => confirmLinkProject(savedCard)}>Save Link</button>
+                        <button className="secondary-button" onClick={() => setLinkingCardId(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="button-row" style={{ marginTop: "1.5rem" }}>
+                      <Link className="primary-button" to="/add-project" state={{ inspirationCard: savedCard }}>
+                        Start project
+                      </Link>
+                      <button className="secondary-button" onClick={() => setLinkingCardId(savedCard.id)}>
+                        Link to project
+                      </button>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}

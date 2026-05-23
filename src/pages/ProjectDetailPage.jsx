@@ -164,6 +164,7 @@ function ProjectDetailPage() {
         )}
       </section>
 
+      {/* ----- UPDATED INSPIRATION SECTION ----- */}
       <section className="section-block">
         <div className="section-header">
           <div>
@@ -176,12 +177,36 @@ function ProjectDetailPage() {
           </Link>
         </div>
 
-        <div className="inspiration-slots">
-          <div>Empty slot 1</div>
-          <div>Empty slot 2</div>
-          <div>Empty slot 3</div>
-        </div>
+        {project.inspirations && project.inspirations.length > 0 ? (
+          <div className="saved-inspiration-grid">
+            {project.inspirations.map((card) => (
+              <article className="saved-card" key={card.id}>
+                <img src={card.image} alt="Inspiration" />
+                <div>
+                  <strong>{card.mood}</strong>
+                  <div className="mini-word-list">
+                    {card.words.map((word) => (
+                      <span key={word}>{word}</span>
+                    ))}
+                  </div>
+                  <div className="mini-palette">
+                    {card.palette.map((color) => (
+                      <span key={color} style={{ backgroundColor: color }} />
+                    ))}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="inspiration-slots">
+            <div>Empty slot 1</div>
+            <div>Empty slot 2</div>
+            <div>Empty slot 3</div>
+          </div>
+        )}
       </section>
+      {/* --------------------------------------- */}
     </div>
   );
 }
