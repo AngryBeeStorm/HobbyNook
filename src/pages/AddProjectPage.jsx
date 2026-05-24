@@ -20,16 +20,14 @@ function AddProjectPage() {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Catch both the inspiration card AND the category from the router state
+  const projectIdea = location.state?.projectIdea;
   const inspirationCard = location.state?.inspirationCard;
-  const passedCategory = location.state?.defaultCategory;
+  const passedCategory = location.state?.defaultCategory || projectIdea?.category;
   
   const categories = getSavedCategories();
-  const [name, setName] = useState("");
-  
-  // NEW: Use the passed category if it exists, otherwise fall back to normal
+  const [name, setName] = useState(projectIdea?.title || "");
   const [category, setCategory] = useState(passedCategory || categories[0]?.name || "Uncategorized");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(projectIdea?.description || "");
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -66,14 +64,16 @@ function AddProjectPage() {
     }
   }
 
+  const showPreview = inspirationCard || projectIdea;
+
   return (
     <div className="page">
       <Link className="back-link" to="/projects">
         ← Back to projects
       </Link>
       
-      {/* If there is an inspiration card, use the two-column grid layout! */}
-      <div className={inspirationCard ? "two-column" : ""}>
+      {/* If there is a preview side panel, use the two-column grid layout. */}
+      <div className={showPreview ? "two-column" : ""}>
         <section className="section-block">
           <div className="section-header">
             <div>
@@ -91,9 +91,15 @@ function AddProjectPage() {
             <div style={{ display: "grid", gap: "0.5rem" }}>
               <label style={{ fontWeight: 800, color: "var(--mutedText)", fontSize: "0.9rem" }}>Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ border: "1px solid var(--border)", borderRadius: "14px", padding: "0.8rem", background: "var(--surface)", color: "var(--text)" }}>
-                {categories.map((cat) => (
-                  <option key={cat.id || cat.name} value={cat.name}>{cat.name}</option>
-                ))}
+                {categories.map((cat) => {
+                  const name = typeof cat === "string" ? cat : cat.name;
+                  return (
+                    <option key={typeof cat === "string" ? cat : cat.id || name} value={name}>{name}</option>
+                  );
+                })}
+                {projectIdea?.category && !categories.some((cat) => (typeof cat === "string" ? cat : cat.name) === projectIdea.category) && (
+                  <option value={projectIdea.category}>{projectIdea.category}</option>
+                )}
               </select>
             </div>
 
@@ -108,6 +114,19 @@ function AddProjectPage() {
             </div>
           </form>
         </section>
+
+        {projectIdea && (
+          <section className="section-block" style={{ height: "fit-content" }}>
+            <p className="section-kicker">AI idea</p>
+            <div className="saved-card" style={{ marginTop: "1rem" }}>
+              <div style={{ padding: "1rem" }}>
+                <strong>{projectIdea.title}</strong>
+                <p style={{ margin: "0.75rem 0 0", color: "var(--mutedText)" }}>{projectIdea.description}</p>
+                <span className="pill" style={{ marginTop: "1rem", display: "inline-block" }}>{projectIdea.category}</span>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Display the Inspiration Card on the right side if it exists */}
         {inspirationCard && (
