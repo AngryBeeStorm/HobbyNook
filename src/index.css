@@ -1257,3 +1257,86 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* --- Magazine Timeline Layout --- */
+
+/* Base timeline styles (already exists in your CSS, but we ensure gap) */
+.timeline {
+  display: grid;
+  gap: 2rem;
+}
+
+/* Base style for the panel */
+.timeline-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 2.5rem; /* Larger padding as requested! */
+  margin-bottom: 1.5rem;
+}
+
+/* If the update HAS an image, turn it into a flexbox */
+.timeline-item.has-image {
+  display: flex;
+  align-items: center;
+  gap: 3rem;
+  min-height: 280px; /* Larger panel to fit images nicely */
+}
+
+/* The inner containers take up equal 50/50 space */
+.timeline-text-content {
+  flex: 1;
+}
+
+.timeline-image-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+/* Style the uploaded timeline image */
+.timeline-image-content img {
+  width: 100%;
+  max-height: 350px;
+  object-fit: cover;
+  border-radius: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Alternating Logic via flex order! */
+.timeline-item.has-image.even-layout .timeline-text-content {
+  order: 1;
+}
+.timeline-item.has-image.even-layout .timeline-image-content {
+  order: 2;
+}
+
+.timeline-item.has-image.odd-layout .timeline-text-content {
+  order: 2; /* Move text to the right side on odd rows */
+}
+.timeline-item.has-image.odd-layout .timeline-image-content {
+  order: 1; /* Move image to the left side on odd rows */
+}
+
+/* Responsive Mobile Fixes */
+@media (max-width: 900px) {
+  /* Ensure the log form doesn't squash on mobile */
+  .two-column {
+    grid-template-columns: 1fr;
+  }
+
+  /* Force the timeline back into a normal top-to-bottom stack on mobile */
+  .timeline-item.has-image {
+    flex-direction: column;
+    text-align: left;
+    padding: 1.5rem;
+  }
+  
+  /* Reset the alternating flex order so image is always on top/bottom natively */
+  .timeline-item.has-image.even-layout .timeline-text-content,
+  .timeline-item.has-image.odd-layout .timeline-text-content,
+  .timeline-item.has-image.even-layout .timeline-image-content,
+  .timeline-item.has-image.odd-layout .timeline-image-content {
+    order: unset;
+  }
+}
