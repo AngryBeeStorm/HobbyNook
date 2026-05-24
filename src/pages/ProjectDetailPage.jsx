@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import StatCard from "../components/StatCard";
 import { sampleProjects } from "../data/sampleData";
 
@@ -17,6 +17,8 @@ function ProjectDetailPage() {
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [openUpdateMenu, setOpenUpdateMenu] = useState(null);
+
   useEffect(() => {
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
     const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
@@ -27,6 +29,8 @@ function ProjectDetailPage() {
       setEditDescriptionText(foundProject.description);
     }
   }, [projectId]);
+
+  const navigate = useNavigate();
 
   function handleSaveDescription() {
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
@@ -43,6 +47,105 @@ function ProjectDetailPage() {
     
     setProject({ ...project, description: editDescriptionText });
     setIsEditingDescription(false);
+  }
+
+  function handleDeleteProject() {
+    const confirmed = window.confirm(
+      "Delete this project? This cannot be undone."
+    );
+    if (!confirmed) return;
+
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+    const updatedProjects = allProjects.filter((p) => p.id !== projectId);
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    navigate("/projects");
+  }
+
+  function handleDeleteProjectInspiration(cardId) {
+    const confirmed = window.confirm(
+      "Remove this inspiration from the project? It will remain in your trove."
+    );
+    if (!confirmed) return;
+
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+    const updatedProjects = allProjects.map((p) => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          inspirations: (p.inspirations || []).filter((card) => card.id !== cardId),
+        };
+      }
+      return p;
+    });
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    setProject((currentProject) => ({
+      ...currentProject,
+      inspirations: (currentProject.inspirations || []).filter(
+        (card) => card.id !== cardId
+      ),
+    }));
+  }
+
+  function handleUpdateStatus(value) {
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+
+    const updatedProjects = allProjects.map((p) => {
+      if (p.id === projectId) {
+        return { ...p, status: value };
+      }
+      return p;
+    });
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    setProject({ ...project, status: value });
+  }
+
+
+  function handleEditUpdate(update) {
+    setOpenUpdateMenu(null);
+    navigate(`/projects/${projectId}/log`, { state: { update, projectTitle: project.title } });
+  }
+
+  function handleDeleteUpdate(updateId) {
+    const confirmed = window.confirm(
+      "Delete this progress update? Hours logged will be removed from the total."
+    );
+    if (!confirmed) return;
+
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+
+    const updatedProjects = allProjects.map((p) => {
+      if (p.id === projectId) {
+        const updateToRemove = (p.updates || []).find((update) => update.id === updateId);
+        const removedHours = updateToRemove ? parseFloat(updateToRemove.hours) || 0 : 0;
+
+        return {
+          ...p,
+          hoursSpent: Math.max(0, (p.hoursSpent || 0) - removedHours),
+          updates: (p.updates || []).filter((update) => update.id !== updateId),
+        };
+      }
+      return p;
+    });
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    setProject((currentProject) => {
+      const updateToRemove = (currentProject.updates || []).find((update) => update.id === updateId);
+      const removedHours = updateToRemove ? parseFloat(updateToRemove.hours) || 0 : 0;
+
+      return {
+        ...currentProject,
+        hoursSpent: Math.max(0, (currentProject.hoursSpent || 0) - removedHours),
+        updates: (currentProject.updates || []).filter((update) => update.id !== updateId),
+      };
+    });
+    setOpenUpdateMenu(null);
   }
 
   // --- DRAG AND DROP HANDLERS ---
@@ -223,6 +326,9 @@ function ProjectDetailPage() {
                   <button className="secondary-button" onClick={() => setIsEditingDescription(true)}>
                     Edit description
                   </button>
+                  <button className="secondary-button" onClick={handleDeleteProject}>
+                    Delete project
+                  </button>
                 </>
               )}
             </div>
@@ -232,7 +338,19 @@ function ProjectDetailPage() {
       </section>
 
       <section className="stats-grid">
-        <StatCard label="Status" value={project.status} />
+        <article className="stat-card">
+          <p>Status</p>
+          <select
+            className="stat-card-select"
+            value={project.status}
+            onChange={(event) => handleUpdateStatus(event.target.value)}
+          >
+            <option value="Not started">Not started</option>
+            <option value="In progress">In progress</option>
+            <option value="Paused">Paused</option>
+            <option value="Finished">Finished</option>
+          </select>
+        </article>
         <StatCard label="Hours spent" value={project.hoursSpent} />
         <StatCard label="Updates" value={project.updates.length} />
       </section>
@@ -253,7 +371,29 @@ function ProjectDetailPage() {
           <div className="timeline">
             {sortedUpdates.map((update) => (
               <article className="timeline-item" key={update.id}>
-                <span>{update.date}</span>
+                <div className="timeline-item-header">
+                  <span>{update.date}</span>
+                  <div className="timeline-item-menu">
+                    <button
+                      className="timeline-menu-button"
+                      onClick={() => setOpenUpdateMenu((current) => current === update.id ? null : update.id)}
+                      aria-label="Update options"
+                      type="button"
+                    >
+                      •••
+                    </button>
+                    {openUpdateMenu === update.id && (
+                      <div className="timeline-item-dropdown">
+                        <button type="button" onClick={() => handleEditUpdate(update)}>
+                          Edit update
+                        </button>
+                        <button type="button" onClick={() => handleDeleteUpdate(update.id)}>
+                          Delete update
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <h3>{update.title}</h3>
                 <p>{update.text}</p>
                 <small>{update.hours} hours</small>
@@ -291,6 +431,14 @@ function ProjectDetailPage() {
                     {card.palette.map((color) => (
                       <span key={color} style={{ backgroundColor: color }} />
                     ))}
+                  </div>
+                  <div className="button-row" style={{ marginTop: "1rem" }}>
+                    <button
+                      className="secondary-button"
+                      onClick={() => handleDeleteProjectInspiration(card.id)}
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
               </article>

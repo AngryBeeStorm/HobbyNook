@@ -10,6 +10,7 @@ import {
 import { fetchRandomUnsplashImage } from "../services/unsplashApi";
 
 const PROJECTS_KEY = "craftspark-projects";
+const SAVED_INSPIRATIONS_KEY = "craftspark-saved-inspirations";
 
 function getRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -54,7 +55,17 @@ function createRandomCard() {
 function InspirationPage() {
   const firstCard = useMemo(() => createRandomCard(), []);
   const [card, setCard] = useState(firstCard);
-  const [savedCards, setSavedCards] = useState([]);
+  const [savedCards, setSavedCards] = useState(() => {
+    const stored = localStorage.getItem(SAVED_INSPIRATIONS_KEY);
+    if (!stored) return [];
+
+    try {
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [keywords, setKeywords] = useState("crochet flowers");
   const [useCustomKeyword, setUseCustomKeyword] = useState(true);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
@@ -70,6 +81,10 @@ function InspirationPage() {
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
     if (savedProjects) setProjects(JSON.parse(savedProjects));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem(SAVED_INSPIRATIONS_KEY, JSON.stringify(savedCards));
+  }, [savedCards]);
 
   async function fetchKeywordImage() {
     setIsLoadingImage(true);
@@ -161,6 +176,25 @@ function InspirationPage() {
       { ...card, id: crypto.randomUUID() },
       ...currentCards,
     ]);
+  }
+
+  function deleteSavedCard(cardId) {
+    const confirmed = window.confirm(
+      "Delete this inspiration from your trove? This will also remove it from any linked projects."
+    );
+    if (!confirmed) return;
+
+    const updatedProjects = projects.map((project) => ({
+      ...project,
+      inspirations: (project.inspirations || []).filter(
+        (savedCard) => savedCard.id !== cardId
+      ),
+    }));
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    setProjects(updatedProjects);
+    setSavedCards((currentCards) => currentCards.filter((card) => card.id !== cardId));
+    if (linkingCardId === cardId) setLinkingCardId(null);
   }
 
   // --- Function to save the link to local storage ---
@@ -314,15 +348,27 @@ function InspirationPage() {
                       <div className="button-row">
                         <button className="primary-button" onClick={() => confirmLinkProject(savedCard)}>Save Link</button>
                         <button className="secondary-button" onClick={() => setLinkingCardId(null)}>Cancel</button>
+                        <button
+                          className="secondary-button"
+                          onClick={() => deleteSavedCard(savedCard.id)}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="button-row" style={{ marginTop: "1.5rem" }}>
+                    <div className="button-row" style={{ marginTop: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>
                       <Link className="primary-button" to="/add-project" state={{ inspirationCard: savedCard }}>
                         Start project
                       </Link>
                       <button className="secondary-button" onClick={() => setLinkingCardId(savedCard.id)}>
                         Link to project
+                      </button>
+                      <button
+                        className="secondary-button"
+                        onClick={() => deleteSavedCard(savedCard.id)}
+                      >
+                        Delete
                       </button>
                     </div>
                   )}

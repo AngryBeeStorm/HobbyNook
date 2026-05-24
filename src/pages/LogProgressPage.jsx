@@ -1,46 +1,70 @@
 import { useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
-import { sampleProjects } from "../data/sampleData"; // <-- This was the missing link!
+import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
+import { sampleProjects } from "../data/sampleData";
 
 const PROJECTS_KEY = "craftspark-projects";
 
 function LogProgressPage() {
   const { projectId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [hours, setHours] = useState("");
-  const [notes, setNotes] = useState("");
+  const editingUpdate = location.state?.update || null;
+  const isEditing = Boolean(editingUpdate?.id);
+  const [title, setTitle] = useState(editingUpdate?.title || "");
+  const [date, setDate] = useState(editingUpdate?.date || new Date().toISOString().split("T")[0]);
+  const [hours, setHours] = useState(editingUpdate?.hours?.toString() || "");
+  const [notes, setNotes] = useState(editingUpdate?.text || "");
 
   function handleSubmit(event) {
     event.preventDefault();
     
     const savedProjects = localStorage.getItem(PROJECTS_KEY);
     const currentProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
-    
     const updatedProjects = currentProjects.map(project => {
-      if (project.id === projectId) {
-        // Fallback for missing crypto.randomUUID
-        const safeId = (typeof crypto !== "undefined" && crypto.randomUUID) 
-          ? crypto.randomUUID() 
-          : `update-${Date.now()}`;
+      if (project.id !== projectId) return project;
 
-        const newUpdate = {
-          id: safeId,
-          title: title,
-          date: date,
-          hours: parseFloat(hours) || 0,
-          text: notes
-        };
+      if (isEditing) {
+        const originalHours = parseFloat(editingUpdate.hours) || 0;
+        const newHours = parseFloat(hours) || 0;
+        const hourDiff = newHours - originalHours;
+
         return {
           ...project,
           status: "In progress",
-          hoursSpent: project.hoursSpent + (parseFloat(hours) || 0),
-          updates: [newUpdate, ...project.updates]
+          hoursSpent: Math.max(0, (project.hoursSpent || 0) + hourDiff),
+          updates: (project.updates || []).map((update) =>
+            update.id === editingUpdate.id
+              ? {
+                  ...update,
+                  title,
+                  date,
+                  hours: newHours,
+                  text: notes,
+                }
+              : update
+          ),
         };
       }
-      return project;
+
+      const safeId = (typeof crypto !== "undefined" && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `update-${Date.now()}`;
+
+      const newUpdate = {
+        id: safeId,
+        title: title,
+        date: date,
+        hours: parseFloat(hours) || 0,
+        text: notes,
+      };
+
+      return {
+        ...project,
+        status: "In progress",
+        hoursSpent: (project.hoursSpent || 0) + (parseFloat(hours) || 0),
+        updates: [newUpdate, ...(project.updates || [])],
+      };
     });
 
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
@@ -57,7 +81,7 @@ function LogProgressPage() {
         <div className="section-header">
           <div>
             <p className="section-kicker">Update Timeline</p>
-            <h2>Log progress</h2>
+            <h2>{isEditing ? "Edit progress update" : "Log progress"}</h2>
           </div>
         </div>
 
@@ -113,7 +137,9 @@ function LogProgressPage() {
           </div>
 
           <div className="button-row">
-            <button type="submit" className="primary-button">Save update</button>
+            <button type="submit" className="primary-button">
+              {isEditing ? "Save changes" : "Save update"}
+            </button>
             <Link className="secondary-button" to={`/projects/${projectId}`}>Cancel</Link>
           </div>
         </form>

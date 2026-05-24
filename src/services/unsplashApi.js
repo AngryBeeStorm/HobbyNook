@@ -9,7 +9,7 @@ export async function fetchRandomUnsplashImage(query) {
 
   const url = new URL("https://api.unsplash.com/photos/random");
   url.searchParams.set("query", cleanQuery);
-  url.searchParams.set("orientation", "portrait");
+  url.searchParams.set("orientation", "squarish");
   url.searchParams.set("content_filter", "high");
 
   const response = await fetch(url, {
@@ -25,7 +25,7 @@ export async function fetchRandomUnsplashImage(query) {
   const data = await response.json();
 
   return {
-    imageUrl: data.urls.regular,
+    imageUrl: `${data.urls.raw}&w=800&h=800&fit=crop`,
     imageAlt: data.alt_description || cleanQuery,
     imageCredit: data.user?.name || "Unsplash creator",
     imageSourceUrl: data.links?.html || "",
