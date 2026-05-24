@@ -13,6 +13,10 @@ function ProjectDetailPage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescriptionText, setEditDescriptionText] = useState("");
 
+  // Personal Notes Editing State
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editNotesText, setEditNotesText] = useState("");
+
   // Cover Image Editing State
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -27,6 +31,8 @@ function ProjectDetailPage() {
     if (foundProject) {
       setProject(foundProject);
       setEditDescriptionText(foundProject.description);
+      // Load existing notes or default to empty
+      setEditNotesText(foundProject.personalNotes || "");
     }
   }, [projectId]);
 
@@ -47,6 +53,24 @@ function ProjectDetailPage() {
     
     setProject({ ...project, description: editDescriptionText });
     setIsEditingDescription(false);
+  }
+
+  // --- NEW: Save Notes Logic ---
+  function handleSaveNotes() {
+    const savedProjects = localStorage.getItem(PROJECTS_KEY);
+    const allProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+
+    const updatedProjects = allProjects.map((p) => {
+      if (p.id === projectId) {
+        return { ...p, personalNotes: editNotesText };
+      }
+      return p;
+    });
+
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
+    
+    setProject({ ...project, personalNotes: editNotesText });
+    setIsEditingNotes(false);
   }
 
   function handleDeleteProject() {
@@ -214,6 +238,75 @@ function ProjectDetailPage() {
         <StatCard label="Hours spent" value={project.hoursSpent} />
         <StatCard label="Updates" value={project.updates.length} />
       </section>
+
+      {/* --- NEW: PERSONAL NOTES SECTION --- */}
+      <section className="section-block">
+        <div className="section-header">
+          <div>
+            <p className="section-kicker">Private</p>
+            <h2>Personal Notes</h2>
+          </div>
+          
+          {/* Only show the Edit button if we aren't already editing */}
+          {!isEditingNotes && (
+            <button 
+              className="secondary-button" 
+              onClick={() => setIsEditingNotes(true)}
+              style={{ margin: 0 }}
+            >
+              Edit notes
+            </button>
+          )}
+        </div>
+
+        {isEditingNotes ? (
+          <div style={{ display: "grid", gap: "0.5rem" }}>
+            <textarea 
+              rows="6" 
+              placeholder="Jot down future ideas, yarn batch numbers, or reminders..."
+              value={editNotesText} 
+              onChange={(e) => setEditNotesText(e.target.value)} 
+              style={{ 
+                border: "1px solid var(--border)", 
+                borderRadius: "14px", 
+                padding: "1rem", 
+                background: "var(--surface)", 
+                color: "var(--text)", 
+                fontFamily: "inherit",
+                resize: "vertical"
+              }} 
+            />
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
+              <button className="primary-button" onClick={handleSaveNotes}>Save</button>
+              <button 
+                className="secondary-button" 
+                onClick={() => { 
+                  setIsEditingNotes(false); 
+                  setEditNotesText(project.personalNotes || ""); 
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ 
+            background: "var(--surfaceAlt)", 
+            padding: "1.5rem", 
+            borderRadius: "16px",
+            minHeight: "100px",
+            whiteSpace: "pre-wrap", // This ensures line breaks are respected!
+            lineHeight: "1.7"
+          }}>
+            {project.personalNotes ? (
+              project.personalNotes
+            ) : (
+              <span style={{ color: "var(--mutedText)" }}>No personal notes yet. Jot down some ideas!</span>
+            )}
+          </div>
+        )}
+      </section>
+      {/* ---------------------------------- */}
 
       <section className="section-block">
         <div className="section-header">
