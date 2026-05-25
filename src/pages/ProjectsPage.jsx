@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import ProjectCard from "../components/ProjectCard";
-import { sampleProjects, defaultRouletteItems } from "../data/sampleData";
+import { getProjects, getRouletteItems } from "../services/api";
+import { defaultRouletteItems } from "../data/sampleData";
 import { fetchProjectIdeas } from "../services/openaiApi";
-
-const PROJECTS_KEY = "craftspark-projects";
-const ROULETTE_KEY = "craftspark-roulette-items";
 
 function mergeCategories(projects, savedRouletteItems) {
   const projectCategories = Array.isArray(projects)
@@ -16,8 +14,13 @@ function mergeCategories(projects, savedRouletteItems) {
     ? savedRouletteItems.map((item) => item.name).filter(Boolean)
     : [];
 
-  const allCategories = Array.from(new Set([...projectCategories, ...rouletteCategories]));
-  return allCategories.length ? allCategories : defaultRouletteItems.map((item) => item.name);
+  const allCategories = Array.from(
+    new Set([...projectCategories, ...rouletteCategories])
+  );
+
+  return allCategories.length
+    ? allCategories
+    : defaultRouletteItems.map((item) => item.name);
 }
 
 function ProjectsPage() {
@@ -29,24 +32,31 @@ function ProjectsPage() {
   const [aiIdeas, setAiIdeas] = useState([]);
   const [isGeneratingIdeas, setIsGeneratingIdeas] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
 
   useEffect(() => {
-    const savedProjects = localStorage.getItem(PROJECTS_KEY);
-    const currentProjects = savedProjects ? JSON.parse(savedProjects) : sampleProjects;
+    async function loadProjectsPage() {
+      try {
+        const [projectsData, rouletteData] = await Promise.all([
+          getProjects(),
+          getRouletteItems(),
+        ]);
 
-    setProjects(currentProjects);
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(currentProjects));
+        const currentProjects = projectsData.projects || [];
+        const currentRouletteItems = rouletteData.items || [];
 
-    const savedRoulette = localStorage.getItem(ROULETTE_KEY);
-    let parsedRoulette;
-
-    try {
-      parsedRoulette = savedRoulette ? JSON.parse(savedRoulette) : defaultRouletteItems;
-    } catch {
-      parsedRoulette = defaultRouletteItems;
+        setProjects(currentProjects);
+        setCategories(mergeCategories(currentProjects, currentRouletteItems));
+      } catch (error) {
+        console.error(error);
+        setPageError("Could not load your projects.");
+      } finally {
+        setIsLoading(false);
+      }
     }
 
-    setCategories(mergeCategories(currentProjects, parsedRoulette));
+    loadProjectsPage();
   }, []);
 
   useEffect(() => {
@@ -59,6 +69,7 @@ function ProjectsPage() {
     if (isGeneratingIdeas) return;
 
     const promptValue = aiPromptType === "category" ? aiCategory : aiInput.trim();
+
     if (!promptValue) {
       setAiError("Please enter a title or description, or choose a category first.");
       return;
@@ -84,6 +95,17 @@ function ProjectsPage() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="page">
+        <section className="section-block">
+          <p className="section-kicker">Loading</p>
+          <h2>Loading your projects...</h2>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page">
       <section className="section-block">
@@ -93,19 +115,30 @@ function ProjectsPage() {
             <h2>Your project panels</h2>
           </div>
 
-          <Link className="primary-button" to="/add-project">New project</Link>
+          <Link className="primary-button" to="/add-project">
+            New project
+          </Link>
         </div>
 
         <p className="section-description">
-          Each project will eventually contain progress photos, notes, hour
-          logs, inspiration cards, and a timeline of updates.
+          Each project can contain progress photos, notes, hour logs,
+          inspiration cards, and a timeline of updates.
         </p>
 
-        <div className="project-grid">
-          {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+        {pageError && <p className="form-error">{pageError}</p>}
+
+        {projects.length === 0 ? (
+          <p className="empty-message">
+            You do not have any projects yet. Create your first project to start
+            building your craft archive.
+          </p>
+        ) : (
+          <div className="project-grid">
+            {projects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="section-block">
@@ -117,7 +150,8 @@ function ProjectsPage() {
         </div>
 
         <p className="section-description">
-          Use a title, description, or category prompt to create starter ideas you can turn into a project.
+          Use a title, description, or category prompt to create starter ideas
+          you can turn into a project.
         </p>
 
         <div className="ai-idea-form">
@@ -131,6 +165,7 @@ function ProjectsPage() {
               />
               Title
             </label>
+
             <label>
               <input
                 type="radio"
@@ -140,6 +175,7 @@ function ProjectsPage() {
               />
               Description
             </label>
+
             <label>
               <input
                 type="radio"
@@ -156,7 +192,10 @@ function ProjectsPage() {
               <label style={{ fontWeight: 800, color: "var(--mutedText)", fontSize: "0.9rem" }}>
                 Choose category
               </label>
-              <select value={aiCategory} onChange={(event) => setAiCategory(event.target.value)}>
+              <select
+                value={aiCategory}
+                onChange={(event) => setAiCategory(event.target.value)}
+              >
                 {categories.map((categoryName) => (
                   <option key={categoryName} value={categoryName}>
                     {categoryName}
@@ -167,8 +206,11 @@ function ProjectsPage() {
           ) : (
             <div style={{ display: "grid", gap: "0.5rem" }}>
               <label style={{ fontWeight: 800, color: "var(--mutedText)", fontSize: "0.9rem" }}>
-                {aiPromptType === "title" ? "Project title" : "Project description"}
+                {aiPromptType === "title"
+                  ? "Project title"
+                  : "Project description"}
               </label>
+
               {aiPromptType === "title" ? (
                 <input
                   type="text"
@@ -179,7 +221,7 @@ function ProjectsPage() {
               ) : (
                 <textarea
                   rows="3"
-                  placeholder="e.g., A small sewing kit that fits in a travel pouch and includes color-coded thread holders."
+                  placeholder="e.g., A small sewing kit that fits in a travel pouch."
                   value={aiInput}
                   onChange={(event) => setAiInput(event.target.value)}
                 />
@@ -188,14 +230,14 @@ function ProjectsPage() {
           )}
 
           <div className="button-row" style={{ alignItems: "center" }}>
-            <button type="button" className="primary-button" onClick={handleGenerateIdeas} disabled={isGeneratingIdeas}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleGenerateIdeas}
+              disabled={isGeneratingIdeas}
+            >
               {isGeneratingIdeas ? "Generating ideas…" : "Generate ideas"}
             </button>
-            <span style={{ fontSize: "0.95rem", color: "var(--mutedText)" }}>
-              {aiPromptType === "category"
-                ? "Choose a category to seed the ideas."
-                : "Give AI one short prompt and edit the result later."}
-            </span>
           </div>
 
           {aiError && <p className="ai-error-message">{aiError}</p>}
@@ -208,10 +250,16 @@ function ProjectsPage() {
                 <div className="ai-idea-card-topline">
                   <span className="pill">{idea.category}</span>
                 </div>
+
                 <h3>{idea.title}</h3>
                 <p>{idea.description}</p>
-                <Link className="primary-button" to="/add-project" state={{ projectIdea: idea }}>
-                  Start project
+
+                <Link
+                  className="primary-button"
+                  to="/add-project"
+                  state={{ projectIdea: idea }}
+                >
+                  Start this project
                 </Link>
               </article>
             ))}

@@ -8,9 +8,13 @@ import {
   inspirationWords,
 } from "../data/sampleData";
 import { fetchRandomUnsplashImage } from "../services/unsplashApi";
-
-const PROJECTS_KEY = "craftspark-projects";
-const SAVED_INSPIRATIONS_KEY = "craftspark-saved-inspirations";
+import {
+  createInspiration,
+  deleteInspiration,
+  getInspirations,
+  getProjects,
+  linkInspirationToProject,
+} from "../services/api";
 
 function getRandomItem(items) {
   return items[Math.floor(Math.random() * items.length)];
@@ -36,6 +40,7 @@ function getRandomKeyword() {
   const second = getRandomItem(
     inspirationWords.filter((word) => word !== first)
   );
+
   return `${first} ${second}`;
 }
 
@@ -55,36 +60,36 @@ function createRandomCard() {
 function InspirationPage() {
   const firstCard = useMemo(() => createRandomCard(), []);
   const [card, setCard] = useState(firstCard);
-  const [savedCards, setSavedCards] = useState(() => {
-    const stored = localStorage.getItem(SAVED_INSPIRATIONS_KEY);
-    if (!stored) return [];
+  const [savedCards, setSavedCards] = useState([]);
 
-    try {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  });
   const [keywords, setKeywords] = useState("crochet flowers");
   const [useCustomKeyword, setUseCustomKeyword] = useState(true);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
 
-  // --- State for linking to existing projects ---
   const [projects, setProjects] = useState([]);
   const [linkingCardId, setLinkingCardId] = useState(null);
   const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
-    // Load projects so we can populate the "Link to project" dropdown
-    const savedProjects = localStorage.getItem(PROJECTS_KEY);
-    if (savedProjects) setProjects(JSON.parse(savedProjects));
+    async function loadInspirationPageData() {
+      try {
+        const [projectsData, inspirationsData] = await Promise.all([
+          getProjects(),
+          getInspirations(),
+        ]);
+
+        setProjects(projectsData.projects || []);
+        setSavedCards(inspirationsData.cards || []);
+      } catch (error) {
+        console.error(error);
+        setImageError("Could not load your saved inspiration data.");
+      }
+    }
+
+    loadInspirationPageData();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(SAVED_INSPIRATIONS_KEY, JSON.stringify(savedCards));
-  }, [savedCards]);
 
   async function fetchKeywordImage() {
     setIsLoadingImage(true);
@@ -171,51 +176,72 @@ function InspirationPage() {
     await fetchKeywordImage();
   }
 
-  function saveCard() {
-    setSavedCards((currentCards) => [
-      { ...card, id: crypto.randomUUID() },
-      ...currentCards,
-    ]);
+  async function saveCard() {
+    try {
+      setImageError("");
+
+      const data = await createInspiration({
+        image: card.image,
+        imageAlt: card.imageAlt || "",
+        imageCredit: card.imageCredit || "",
+        imageSourceUrl: card.imageSourceUrl || "",
+        mood: card.mood || "Untitled mood",
+        words: card.words || [],
+        palette: card.palette || [],
+      });
+
+      setSavedCards((currentCards) => [data.card, ...currentCards]);
+    } catch (error) {
+      console.error(error);
+      setImageError(error.message || "Could not save this inspiration card.");
+    }
   }
 
-  function deleteSavedCard(cardId) {
-    const confirmed = window.confirm(
-      "Delete this inspiration from your trove? This will also remove it from any linked projects."
-    );
+  async function deleteSavedCard(cardId) {
+    const confirmed = window.confirm("Delete this inspiration from your trove?");
+
     if (!confirmed) return;
 
-    const updatedProjects = projects.map((project) => ({
-      ...project,
-      inspirations: (project.inspirations || []).filter(
-        (savedCard) => savedCard.id !== cardId
-      ),
-    }));
+    try {
+      await deleteInspiration(cardId);
 
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
-    setProjects(updatedProjects);
-    setSavedCards((currentCards) => currentCards.filter((card) => card.id !== cardId));
-    if (linkingCardId === cardId) setLinkingCardId(null);
+      setSavedCards((currentCards) =>
+        currentCards.filter((card) => card.id !== cardId)
+      );
+
+      if (linkingCardId === cardId) {
+        setLinkingCardId(null);
+      }
+    } catch (error) {
+      console.error(error);
+      setImageError(error.message || "Could not delete this inspiration card.");
+    }
   }
 
-  // --- Function to save the link to local storage ---
-  function confirmLinkProject(savedCard) {
-    if (!selectedProjectId) return;
+  async function confirmLinkProject(savedCard) {
+    if (!selectedProjectId) {
+      setImageError("Please choose a project first.");
+      return;
+    }
 
-    const updatedProjects = projects.map((p) => {
-      if (p.id === selectedProjectId) {
-        const existingInspirations = p.inspirations || [];
-        return { ...p, inspirations: [savedCard, ...existingInspirations] };
-      }
-      return p;
-    });
+    setIsLinking(true);
+    setImageError("");
 
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(updatedProjects));
-    setProjects(updatedProjects);
-    
-    // Close the dropdown menu
-    setLinkingCardId(null);
-    setSelectedProjectId("");
-    alert("Inspiration successfully linked to project!");
+    try {
+      await linkInspirationToProject({
+        projectId: selectedProjectId,
+        inspirationId: savedCard.id,
+      });
+
+      setLinkingCardId(null);
+      setSelectedProjectId("");
+      alert("Inspiration linked to project.");
+    } catch (error) {
+      console.error(error);
+      setImageError(error.message || "Could not link inspiration to project.");
+    } finally {
+      setIsLinking(false);
+    }
   }
 
   return (
@@ -304,13 +330,13 @@ function InspirationPage() {
                   <strong>{savedCard.mood}</strong>
 
                   <div className="mini-word-list">
-                    {savedCard.words.map((word) => (
+                    {(savedCard.words || []).map((word) => (
                       <span key={word}>{word}</span>
                     ))}
                   </div>
 
                   <div className="mini-palette">
-                    {savedCard.palette.map((color) => (
+                    {(savedCard.palette || []).map((color) => (
                       <span key={color} style={{ backgroundColor: color }} />
                     ))}
                   </div>
@@ -332,22 +358,54 @@ function InspirationPage() {
                     </p>
                   )}
 
-                  {/* --- Interactive Linking Buttons --- */}
                   {linkingCardId === savedCard.id ? (
-                    <div style={{ marginTop: "1.5rem", display: "grid", gap: "0.5rem" }}>
-                      <select 
-                        value={selectedProjectId} 
-                        onChange={(e) => setSelectedProjectId(e.target.value)}
-                        style={{ padding: "0.5rem", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--text)" }}
+                    <div
+                      style={{
+                        marginTop: "1.5rem",
+                        display: "grid",
+                        gap: "0.5rem",
+                      }}
+                    >
+                      <select
+                        value={selectedProjectId}
+                        onChange={(event) =>
+                          setSelectedProjectId(event.target.value)
+                        }
+                        style={{
+                          padding: "0.5rem",
+                          borderRadius: "8px",
+                          border: "1px solid var(--border)",
+                          background: "var(--surface)",
+                          color: "var(--text)",
+                        }}
                       >
                         <option value="">Select a project...</option>
-                        {projects.map(p => (
-                          <option key={p.id} value={p.id}>{p.title}</option>
+                        {projects.map((project) => (
+                          <option key={project.id} value={project.id}>
+                            {project.title}
+                          </option>
                         ))}
                       </select>
+
                       <div className="button-row">
-                        <button className="primary-button" onClick={() => confirmLinkProject(savedCard)}>Save Link</button>
-                        <button className="secondary-button" onClick={() => setLinkingCardId(null)}>Cancel</button>
+                        <button
+                          className="primary-button"
+                          onClick={() => confirmLinkProject(savedCard)}
+                          disabled={isLinking}
+                        >
+                          {isLinking ? "Linking..." : "Save link"}
+                        </button>
+
+                        <button
+                          className="secondary-button"
+                          onClick={() => {
+                            setLinkingCardId(null);
+                            setSelectedProjectId("");
+                          }}
+                        >
+                          Cancel
+                        </button>
+
                         <button
                           className="secondary-button"
                           onClick={() => deleteSavedCard(savedCard.id)}
@@ -357,13 +415,29 @@ function InspirationPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="button-row" style={{ marginTop: "1.5rem", flexWrap: "wrap", gap: "0.75rem" }}>
-                      <Link className="primary-button" to="/add-project" state={{ inspirationCard: savedCard }}>
+                    <div
+                      className="button-row"
+                      style={{
+                        marginTop: "1.5rem",
+                        flexWrap: "wrap",
+                        gap: "0.75rem",
+                      }}
+                    >
+                      <Link
+                        className="primary-button"
+                        to="/add-project"
+                        state={{ inspirationCard: savedCard }}
+                      >
                         Start project
                       </Link>
-                      <button className="secondary-button" onClick={() => setLinkingCardId(savedCard.id)}>
+
+                      <button
+                        className="secondary-button"
+                        onClick={() => setLinkingCardId(savedCard.id)}
+                      >
                         Link to project
                       </button>
+
                       <button
                         className="secondary-button"
                         onClick={() => deleteSavedCard(savedCard.id)}
